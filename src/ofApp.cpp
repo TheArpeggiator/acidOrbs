@@ -52,31 +52,22 @@ void ofApp::draw(){
     int wh = ofGetWindowHeight();
     int ww = ofGetWindowWidth();
 
-    /* Commented out for testing
-    float waveform_amp   = 0.5 * wh;
-    float waveform_width = 0.5 * ww;
-    */
-
-
-    //Tester code for orb
-    //Vicotria's Code --------------- From Here
     float waveform_amp   = wh * 0.25;
-    //float waveform_base   = wh * 0.25;
     float waveform_width = ww * 0.25;
+
+    //Vicotria's Code --------------- From Here
     float pi_inc = (float)(2*MY_PIE) / MY_BUFFERSIZE;
     float xcorr = 0.0;
     float ycorr = 0.0;
     float total_radius = 0.0;
     float distance = 0.5;
     float disVar = 0.0;
-    float disVarInv = 0.0;
     float disIntensity = 10.0;
+    //------------------------------- To Here
 
     int r_col;
     int g_col;
     int b_col;
-    //------------------------------- To Here
-
 
     //----------- -----------Top-Left Channel
     r_col = rand() % 255 + 0;
@@ -95,12 +86,10 @@ void ofApp::draw(){
         // Thus int j starts from max, and loops to zero
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
-
             // Each older buffer is further back by this amount
             ofTranslate( 5, 4, -5);
 
-            // Randomized color, but their alpha value is less for
-            // older buffers
+            // Randomized color
             ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
@@ -112,12 +101,11 @@ void ofApp::draw(){
 
                     total_radius = (waveform_width + waveform_amp * leftHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc) + ww *0.25;
-                    ycorr = total_radius * sin(k * pi_inc) - wh *0.75;
+                    xcorr = total_radius * cos(k * pi_inc) + ww *0.25; //Thanks
+                    ycorr = total_radius * sin(k * pi_inc) - wh *0.75; //Victoria!
 
                     ofVertex(xcorr, ycorr, 0);
                 }
-                //distance *= 1.05;
             // End line. False == Don't connect first and last points.
             ofEndShape(false);
         }
@@ -142,12 +130,10 @@ void ofApp::draw(){
         // Thus int j starts from max, and loops to zero
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
-
             // Each older buffer is further back by this amount
             ofTranslate( -5, -4, -5);
 
-            // Randomized color, but their alpha value is less for
-            // older buffers
+            // Randomized color
             ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
@@ -164,7 +150,6 @@ void ofApp::draw(){
 
                     ofVertex(xcorr, ycorr, 0);
                 }
-                //distance *= 1.05;
             // End line. False == Don't connect first and last points.
             ofEndShape(false);
         }
@@ -189,12 +174,10 @@ void ofApp::draw(){
         // Thus int j starts from max, and loops to zero
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
-
             // Each older buffer is further back by this amount
             ofTranslate( 5, -4, -5);
 
-            // Randomized color, but their alpha value is less for
-            // older buffers
+            // Randomized color
             ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
@@ -211,7 +194,6 @@ void ofApp::draw(){
 
                     ofVertex(xcorr, ycorr, 0);
                 }
-                //distance *= 1.05;
             // End line. False == Don't connect first and last points.
             ofEndShape(false);
         }
@@ -236,12 +218,10 @@ void ofApp::draw(){
         // Thus int j starts from max, and loops to zero
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
-
             // Each older buffer is further back by this amount
             ofTranslate( -5, 4, -5);
 
-            // Randomized color, but their alpha value is less for
-            // older buffers
+            // Randomized color
             ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
@@ -258,7 +238,6 @@ void ofApp::draw(){
 
                     ofVertex(xcorr, ycorr, 0);
                 }
-                //distance *= 1.05;
             // End line. False == Don't connect first and last points.
             ofEndShape(false);
         }
