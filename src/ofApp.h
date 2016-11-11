@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ofMain.h"
+#include "ofxStk.h"
 
 //-----------------------------------------------------------------------------
 // Preprocessor definitions
@@ -37,16 +38,30 @@ public:
 
     // Get buffer samples
     void audioIn(float * input, int bufferSize, int nChannels);
+    void audioOut(float * input, int bufferSize, int nChannels);
 
 private:
     // Our sound stream object
     ofSoundStream soundStream;
 
+    // Stk i/o
+    stk::FileWvIn audioFile;
+
     // Vectors for our left- and right-channel waveforms
     vector<float> left;
     vector<float> right;
+    vector<float> audioLeft;
+    vector<float> audioRight;
 
     // Double vectors to save previous waveforms, for plotting in the waterfall
     vector< vector<float> > leftHistory;
     vector< vector<float> > rightHistory;
+    vector< vector<float> > alHistory;
+    vector< vector<float> > arHistory;
+
+    // Audio file playback/mic input toggles
+    bool playback;
+    bool micOn;
+    float leftGain;
+    float rightGain;
 };

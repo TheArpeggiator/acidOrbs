@@ -5,19 +5,35 @@
 //--------------------------------------------------------------
 // setup() -- Setup our application
 //--------------------------------------------------------------
-void ofApp::setup(){
+void ofApp::setup()
+{
     //-AUDIO----------------------------------------------------
 
     // Setup the sound stream
     soundStream.setup(this, 0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
 
+    // Setup wavefile playback
+    audioFile.setRate(MY_SRATE);
+    audioFile.openFile(ofToDataPath("wowWav.wav",true));
+    stk::Stk::setSampleRate(MY_SRATE);
+
+    micOn = true;
+    playback = false;
+    leftGain = 0.5;
+    rightGain = 0.5;
+
+
     // Resize and initialize left and right buffers...
     left.resize( MY_BUFFERSIZE, 0 );
     right.resize( MY_BUFFERSIZE, 0 );
+    audioLeft.resize( MY_BUFFERSIZE, 0 );
+    audioRight.resize( MY_BUFFERSIZE, 0 );
 
     // Resize and initialize left and right history buffers...
     leftHistory.resize(  MY_BUFFERHISTORY, left  );
     rightHistory.resize( MY_BUFFERHISTORY, right );
+    alHistory.resize( MY_BUFFERHISTORY, right );
+    arHistory.resize( MY_BUFFERHISTORY, right );
 
 
     //-VIDEO----------------------------------------------------
@@ -40,10 +56,14 @@ void ofApp::update(){
     // Update audio buffer history with most recent buffer
     leftHistory.push_back( left );
     rightHistory.push_back( right );
+    alHistory.push_back(audioLeft);
+    arHistory.push_back(audioRight);
 
     // Remove oldest buffers
     leftHistory.erase(  leftHistory.begin(),  leftHistory.begin()+1  );
     rightHistory.erase( rightHistory.begin(), rightHistory.begin()+1 );
+    alHistory.erase( alHistory.begin(), alHistory.begin()+1 );
+    arHistory.erase( arHistory.begin(), arHistory.begin()+1 );
 }
 
 //--------------------------------------------------------------
@@ -97,9 +117,9 @@ void ofApp::draw(){
                 // Make a vertex for each sample value
                 for (unsigned int k = 0; k < MY_BUFFERSIZE; k++)
                 {
-                    disVar=(leftHistory[j][k]*disIntensity) + distance;
+                    disVar=(alHistory[j][k]*disIntensity) + distance;
 
-                    total_radius = (waveform_width + waveform_amp * leftHistory[j][k]) *disVar;
+                    total_radius = (waveform_width + waveform_amp * alHistory[j][k]) *disVar;
 
                     xcorr = total_radius * cos(k * pi_inc) + ww *0.25; //Thanks
                     ycorr = total_radius * sin(k * pi_inc) - wh *0.75; //Victoria!
@@ -141,9 +161,9 @@ void ofApp::draw(){
                 // Make a vertex for each sample value
                 for (unsigned int k = 0; k < MY_BUFFERSIZE; k++)
                 {
-                    disVar=(rightHistory[j][k]*disIntensity) + distance;
+                    disVar=(arHistory[j][k]*disIntensity) + distance;
 
-                    total_radius = (waveform_width + waveform_amp * rightHistory[j][k]) *disVar;
+                    total_radius = (waveform_width + waveform_amp * arHistory[j][k]) *disVar;
 
                     xcorr = total_radius * cos(k * pi_inc) + ww *0.75;
                     ycorr = total_radius * sin(k * pi_inc) - wh *0.25;
@@ -250,19 +270,55 @@ void ofApp::draw(){
 //--------------------------------------------------------------
 // audioIn() -- deal with incoming audio buffer
 //--------------------------------------------------------------
-void ofApp::audioIn(float * input, int bufferSize, int nChannels){
+void ofApp::audioIn(float * input, int bufferSize, int nChannels)
+{
 
     // Write incoming audio to buffer. Note: samples are interleaved.
-    for (int i = 0; i < bufferSize; i++){
-        left[i]		= input[i*2];
-        right[i]	= input[i*2+1];
-    }
+    if(micOn)
+        for (int i = 0; i < bufferSize; i++)
+        {
+            left[i]		= input[i*2];
+            right[i]	= input[i*2+1];
+        }
 
 }
 
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key){
+void ofApp::audioOut(float * output, int bufferSize, int nChannels)
+{
+    // Write to output buffer
+    if (playback)
+    {
+        stk::StkFrames frames(bufferSize,2);
+        audioFile.tick(frames);
 
+        stk::StkFrames leftChannel(bufferSize,1);
+        // copy the left Channel of 'frames' into `leftChannel`
+        frames.getChannel(0, leftChannel, 0);
+
+        stk::StkFrames rightChannel(bufferSize, 1);
+        frames.getChannel(1, rightChannel, 0);
+
+        for (int i = 0; i < bufferSize ; i++)
+        {
+            //leftGain = gainSmoothers[0].tick(leftGainTarget);
+            audioLeft[i] = leftChannel(i,0);
+            output[2*i] = leftChannel(i,0)*leftGain;
+
+            //rightGain = gainSmoothers[1].tick(rightGainTarget);
+            audioRight[i] = rightChannel(i,0);
+            output[2*i+1] = rightChannel(i,0)*rightGain;
+        }
+    }
+}
+
+//--------------------------------------------------------------
+void ofApp::keyPressed(int key)
+{
+    if (key == 32)
+    {
+        micOn = !micOn;
+        playback = !playback;
+    }
 }
 
 //--------------------------------------------------------------
