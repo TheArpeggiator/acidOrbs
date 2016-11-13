@@ -2,6 +2,7 @@
 
 #include "ofMain.h"
 #include "ofxStk.h"
+#include "ofxFft.h"
 
 //-----------------------------------------------------------------------------
 // Preprocessor definitions
@@ -45,7 +46,7 @@ private:
     ofSoundStream soundStream;
 
     // FFT object
-    ofxFft* leftFourier,rightFourier;
+    ofxFft *leftFourier, *rightFourier;
 
     // Vectors for our left- and right-channel waveforms
     vector<float> left;
@@ -58,12 +59,12 @@ private:
     // Double vectors to save previous waveforms, for plotting in the waterfall
     vector< vector<float> > leftHistory;
     vector< vector<float> > rightHistory;
+    vector< vector<float> > lBinHistory;
+    vector< vector<float> > rBinHistory;
 
     // Audio file playback/mic input toggles
     bool playback;
     bool micOn;
-    float leftGain;
-    float rightGain;
 
     // Object for sound playback
     ofSoundPlayer audioFile;

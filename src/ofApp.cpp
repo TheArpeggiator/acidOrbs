@@ -10,11 +10,7 @@ void ofApp::setup()
     //-AUDIO----------------------------------------------------
 
     // Setup the sound stream
-    soundStream.setup(this, 0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
-
-    // FFT setup
-    leftFourier = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
-    rightFourier = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
+    soundStream.setup(this,0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
 
     // Setup wavefile playback
     audioFile.load(ofToDataPath("wowWav.wav"));
@@ -23,22 +19,21 @@ void ofApp::setup()
     audioFile.setPaused(true);
 
     micOn = true;
-    playback = false;
-    leftGain = 0.2;
-    rightGain = 0.2;
-
+    //playback = false;
 
     // Resize and initialize left and right buffers...
     left.resize( MY_BUFFERSIZE, 0 );
     right.resize( MY_BUFFERSIZE, 0 );
-    audioLeft.resize( MY_BUFFERSIZE, 0 );
-    audioRight.resize( MY_BUFFERSIZE, 0 );
+    leftTemp.resize( MY_BUFFERSIZE, 0 );
+    rightTemp.resize( MY_BUFFERSIZE, 0 );
+    lBins.resize( MY_BUFFERSIZE, 0 );
+    rBins.resize( MY_BUFFERSIZE, 0 );
 
     // Resize and initialize left and right history buffers...
     leftHistory.resize(  MY_BUFFERHISTORY, left);
     rightHistory.resize( MY_BUFFERHISTORY, right);
-    alHistory.resize( MY_BUFFERHISTORY, audioLeft);
-    arHistory.resize( MY_BUFFERHISTORY, audioRight);
+    lBinHistory.resize( MY_BUFFERHISTORY, lBins);
+    rBinHistory.resize( MY_BUFFERHISTORY, rBins);
 
 
     //-VIDEO----------------------------------------------------
@@ -46,7 +41,6 @@ void ofApp::setup()
     // Sync video refresh rate for our computer
     ofSetVerticalSync(true);
     ofSetFrameRate(60);
-    //ofToggleFullscreen();
 
     // Set background color grayish
     ofBackground(0, 0, 0);
@@ -54,19 +48,85 @@ void ofApp::setup()
     // Tell OpenFrameworks to use smooth edges
     ofEnableSmoothing();
 
+    // FFT setup
+    leftFourier = ofxFft::create(MY_BUFFERSIZE, OF_FFT_WINDOW_HAMMING);
+    rightFourier = ofxFft::create(MY_BUFFERSIZE, OF_FFT_WINDOW_HAMMING);
+
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
     // Update audio buffer history with most recent buffer
-    leftHistory.push_back( left );
-    rightHistory.push_back( right );
+    leftHistory.push_back(left);
+    rightHistory.push_back(right);
+    lBinHistory.push_back(lBins);
+    rBinHistory.push_back(rBins);
 
     // Remove oldest buffers
     leftHistory.erase(  leftHistory.begin(),  leftHistory.begin()+1  );
     rightHistory.erase( rightHistory.begin(), rightHistory.begin()+1 );
+    lBinHistory.erase(  lBinHistory.begin(),  lBinHistory.begin()+1  );
+    rBinHistory.erase( rBinHistory.begin(), rBinHistory.begin()+1 );
 
-//    /ofSoundUpdate();
+
+    // Perform normalization for left channel
+    float maxValue = 0;
+    for(int i = 0; i < leftTemp.size(); i++)
+    {
+        if(abs(leftTemp[i]) > maxValue)
+        {
+            maxValue = abs(leftTemp[i]);
+        }
+    }
+    for(int i = 0; i < leftTemp.size(); i++)
+    {
+        leftTemp[i] /= maxValue;
+    }
+
+    // Perform normalization for right channel
+    maxValue = 0;
+    for(int i = 0; i < rightTemp.size(); i++)
+    {
+        if(abs(rightTemp[i]) > maxValue)
+        {
+            maxValue = abs(rightTemp[i]);
+        }
+    }
+    for(int i = 0; i < rightTemp.size(); i++)
+    {
+        rightTemp[i] /= maxValue;
+    }
+
+    // Set FFT buffer with left and right signals
+    leftFourier->setSignal(&leftTemp[0]);
+    rightFourier->setSignal(&rightTemp[0]);
+
+    float *lFft = leftFourier->getAmplitude();
+    float *rFft = rightFourier->getAmplitude();
+
+
+    // Copy amplitude based FFT into bin buffers for left and right
+    memcpy(&lBins[0],lFft,sizeof(float)*leftFourier->getBinSize());
+    memcpy(&rBins[0],rFft,sizeof(float)*rightFourier->getBinSize());
+
+    // Normalize for left bin buffer
+    maxValue = 0;
+    for(int i = 0; i < leftFourier->getBinSize(); i++)
+        if(abs(lBins[i]) > maxValue)
+            maxValue = abs(lBins[i]);
+
+    for(int i = 0; i < leftFourier->getBinSize(); i++)
+        lBins[i] /= (maxValue*20);
+
+    // Normalize for right bin buffer
+    maxValue = 0;
+    for(int i = 0; i < rightFourier->getBinSize(); i++)
+        if(abs(rBins[i]) > maxValue)
+            maxValue = abs(rBins[i]);
+
+    for(int i = 0; i < rightFourier->getBinSize(); i++)
+        rBins[i] /= (maxValue*20);
+
 }
 
 //--------------------------------------------------------------
@@ -120,12 +180,12 @@ void ofApp::draw(){
                 // Make a vertex for each sample value
                 for (unsigned int k = 0; k < MY_BUFFERSIZE; k++)
                 {
-                    disVar=(alHistory[j][k]*disIntensity) + distance;
+                    disVar=(lBinHistory[j][k]*disIntensity) + distance;
 
-                    total_radius = (waveform_width + waveform_amp * alHistory[j][k]) *disVar;
+                    total_radius = (waveform_width + waveform_amp * lBinHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc) + ww *0.25; //Thanks
-                    ycorr = total_radius * sin(k * pi_inc) - wh *0.75; //Victoria!
+                    xcorr = total_radius * cos(k * pi_inc * 2) + ww *0.25; //Thanks
+                    ycorr = total_radius * sin(k * pi_inc * 2) - wh *0.75; //Victoria!
 
                     ofVertex(xcorr, ycorr, 0);
                 }
@@ -164,12 +224,12 @@ void ofApp::draw(){
                 // Make a vertex for each sample value
                 for (unsigned int k = 0; k < MY_BUFFERSIZE; k++)
                 {
-                    disVar=(arHistory[j][k]*disIntensity) + distance;
+                    disVar=(rBinHistory[j][k]*disIntensity) + distance;
 
-                    total_radius = (waveform_width + waveform_amp * arHistory[j][k]) *disVar;
+                    total_radius = (waveform_width + waveform_amp * rBinHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc) + ww *0.75;
-                    ycorr = total_radius * sin(k * pi_inc) - wh *0.25;
+                    xcorr = total_radius * cos(k * pi_inc * 2) + ww *0.75;
+                    ycorr = total_radius * sin(k * pi_inc * 2) - wh *0.25;
 
                     ofVertex(xcorr, ycorr, 0);
                 }
@@ -281,71 +341,12 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels)
     {
         // Store incomping input into buffers
         for (int i = 0; i < bufferSize; i++)
-        {
-            leftTemp[i]		= input[i*2];       //buffer for FFT
+        {            
             left[i]         = input[i*2];       //unmodulated buffer
-            rightTemp[i]	= input[i*2+1];     //buffer for FFT
             right[i]        = input[i*2+1];     //unmodulated buffer
+            leftTemp[i]		= input[i*2];          //buffer for FFT
+            rightTemp[i]	= input[i*2+1];         //buffer for FFT
         }
-
-        // Perform normalization for left channel
-        float maxValue = 0;
-        for(int i = 0; i < bufferSize; i++)
-        {
-            if(abs(leftTemp[i]) > maxValue)
-            {
-                maxValue = abs(leftTemp[i]);
-            }
-        }
-        for(int i = 0; i < bufferSize; i++)
-        {
-            leftTemp[i] /= maxValue;
-        }
-
-        // Perform normalization for right channel
-        maxValue = 0;
-        for(int i = 0; i < bufferSize; i++)
-        {
-            if(abs(rightTemp[i]) > maxValue)
-            {
-                maxValue = abs(rightTemp[i]);
-            }
-        }
-        for(int i = 0; i < bufferSize; i++)
-        {
-            rightTemp[i] /= maxValue;
-        }
-
-        // Set FFT buffer with left and right signals
-        leftFourier->setSignal(&leftTemp[0]);
-        rightFourier->setSignal(&rightTemp[0]);
-
-        float *lFft = leftFourier->getAmplitude();
-        float *rFft = rightFourier->getAmplitude();
-
-
-        // Copy amplitude based FFT into bin buffers for left and right
-        memcpy(&lBins[0],lFft,sizeof(float)*leftFourier->getBinSize());
-        memcpy(&rBins[0],rFft,sizeof(float)*rightFourier->getBinSize());
-
-        // Normalize for left bin buffer
-        maxValue = 0;
-        for(int i = 0; i < leftFourier->getBinSize(); i++)
-            if(abs(lBins[i]) > maxValue)
-                maxValue = abs(lBins[i]);
-
-        for(int i = 0; i < leftFourier->getBinSize(); i++)
-            lBins[i] /= maxValue;
-
-        // Normalize for right bin buffer
-        maxValue = 0;
-        for(int i = 0; i < rightFourier->getBinSize(); i++)
-            if(abs(rBins[i]) > maxValue)
-                maxValue = abs(rBins[i]);
-
-        for(int i = 0; i < rightFourier->getBinSize(); i++)
-            rBins[i] /= maxValue;
-
     }
 
 }
@@ -358,9 +359,8 @@ void ofApp::audioOut(float * output, int bufferSize, int nChannels)
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
-    if (key == 32)
+    if(key == 32)
     {
-        //micOn = !micOn;
         playback = !playback;
         if(playback)
             audioFile.setPaused(false);

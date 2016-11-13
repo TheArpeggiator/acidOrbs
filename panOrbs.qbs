@@ -12,10 +12,9 @@ Project{
         name: { return FileInfo.baseName(path) }
 
         files: [
-            'src/drumSamples.wav',
-            'src/main.cpp',
-            'src/ofApp.cpp',
-            'src/ofApp.h',
+            "src/main.cpp",
+            "src/ofApp.cpp",
+            "src/ofApp.h",
         ]
 
         of.addons: [
