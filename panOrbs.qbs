@@ -12,6 +12,7 @@ Project{
         name: { return FileInfo.baseName(path) }
 
         files: [
+            'src/drumSamples.wav',
             'src/main.cpp',
             'src/ofApp.cpp',
             'src/ofApp.h',
@@ -19,6 +20,7 @@ Project{
 
         of.addons: [
             'ofxStk',
+            'ofxFft',
         ]
 
         // additional flags for the project. the of module sets some

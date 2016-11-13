@@ -12,15 +12,20 @@ void ofApp::setup()
     // Setup the sound stream
     soundStream.setup(this, 0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
 
+    // FFT setup
+    leftFourier = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
+    rightFourier = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
+
     // Setup wavefile playback
-    audioFile.setRate(MY_SRATE);
-    audioFile.openFile(ofToDataPath("wowWav.wav",true));
-    stk::Stk::setSampleRate(MY_SRATE);
+    audioFile.load(ofToDataPath("wowWav.wav"));
+    audioFile.setVolume(0.5f);
+    audioFile.play();
+    audioFile.setPaused(true);
 
     micOn = true;
     playback = false;
-    leftGain = 0.5;
-    rightGain = 0.5;
+    leftGain = 0.2;
+    rightGain = 0.2;
 
 
     // Resize and initialize left and right buffers...
@@ -30,10 +35,10 @@ void ofApp::setup()
     audioRight.resize( MY_BUFFERSIZE, 0 );
 
     // Resize and initialize left and right history buffers...
-    leftHistory.resize(  MY_BUFFERHISTORY, left  );
-    rightHistory.resize( MY_BUFFERHISTORY, right );
-    alHistory.resize( MY_BUFFERHISTORY, right );
-    arHistory.resize( MY_BUFFERHISTORY, right );
+    leftHistory.resize(  MY_BUFFERHISTORY, left);
+    rightHistory.resize( MY_BUFFERHISTORY, right);
+    alHistory.resize( MY_BUFFERHISTORY, audioLeft);
+    arHistory.resize( MY_BUFFERHISTORY, audioRight);
 
 
     //-VIDEO----------------------------------------------------
@@ -56,14 +61,12 @@ void ofApp::update(){
     // Update audio buffer history with most recent buffer
     leftHistory.push_back( left );
     rightHistory.push_back( right );
-    alHistory.push_back(audioLeft);
-    arHistory.push_back(audioRight);
 
     // Remove oldest buffers
     leftHistory.erase(  leftHistory.begin(),  leftHistory.begin()+1  );
     rightHistory.erase( rightHistory.begin(), rightHistory.begin()+1 );
-    alHistory.erase( alHistory.begin(), alHistory.begin()+1 );
-    arHistory.erase( arHistory.begin(), arHistory.begin()+1 );
+
+//    /ofSoundUpdate();
 }
 
 //--------------------------------------------------------------
@@ -275,40 +278,81 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels)
 
     // Write incoming audio to buffer. Note: samples are interleaved.
     if(micOn)
+    {
+        // Store incomping input into buffers
         for (int i = 0; i < bufferSize; i++)
         {
-            left[i]		= input[i*2];
-            right[i]	= input[i*2+1];
+            leftTemp[i]		= input[i*2];       //buffer for FFT
+            left[i]         = input[i*2];       //unmodulated buffer
+            rightTemp[i]	= input[i*2+1];     //buffer for FFT
+            right[i]        = input[i*2+1];     //unmodulated buffer
         }
+
+        // Perform normalization for left channel
+        float maxValue = 0;
+        for(int i = 0; i < bufferSize; i++)
+        {
+            if(abs(leftTemp[i]) > maxValue)
+            {
+                maxValue = abs(leftTemp[i]);
+            }
+        }
+        for(int i = 0; i < bufferSize; i++)
+        {
+            leftTemp[i] /= maxValue;
+        }
+
+        // Perform normalization for right channel
+        maxValue = 0;
+        for(int i = 0; i < bufferSize; i++)
+        {
+            if(abs(rightTemp[i]) > maxValue)
+            {
+                maxValue = abs(rightTemp[i]);
+            }
+        }
+        for(int i = 0; i < bufferSize; i++)
+        {
+            rightTemp[i] /= maxValue;
+        }
+
+        // Set FFT buffer with left and right signals
+        leftFourier->setSignal(&leftTemp[0]);
+        rightFourier->setSignal(&rightTemp[0]);
+
+        float *lFft = leftFourier->getAmplitude();
+        float *rFft = rightFourier->getAmplitude();
+
+
+        // Copy amplitude based FFT into bin buffers for left and right
+        memcpy(&lBins[0],lFft,sizeof(float)*leftFourier->getBinSize());
+        memcpy(&rBins[0],rFft,sizeof(float)*rightFourier->getBinSize());
+
+        // Normalize for left bin buffer
+        maxValue = 0;
+        for(int i = 0; i < leftFourier->getBinSize(); i++)
+            if(abs(lBins[i]) > maxValue)
+                maxValue = abs(lBins[i]);
+
+        for(int i = 0; i < leftFourier->getBinSize(); i++)
+            lBins[i] /= maxValue;
+
+        // Normalize for right bin buffer
+        maxValue = 0;
+        for(int i = 0; i < rightFourier->getBinSize(); i++)
+            if(abs(rBins[i]) > maxValue)
+                maxValue = abs(rBins[i]);
+
+        for(int i = 0; i < rightFourier->getBinSize(); i++)
+            rBins[i] /= maxValue;
+
+    }
 
 }
 
 void ofApp::audioOut(float * output, int bufferSize, int nChannels)
 {
-    // Write to output buffer
-    if (playback)
-    {
-        stk::StkFrames frames(bufferSize,2);
-        audioFile.tick(frames);
 
-        stk::StkFrames leftChannel(bufferSize,1);
-        // copy the left Channel of 'frames' into `leftChannel`
-        frames.getChannel(0, leftChannel, 0);
-
-        stk::StkFrames rightChannel(bufferSize, 1);
-        frames.getChannel(1, rightChannel, 0);
-
-        for (int i = 0; i < bufferSize ; i++)
-        {
-            //leftGain = gainSmoothers[0].tick(leftGainTarget);
-            audioLeft[i] = leftChannel(i,0);
-            output[2*i] = leftChannel(i,0)*leftGain;
-
-            //rightGain = gainSmoothers[1].tick(rightGainTarget);
-            audioRight[i] = rightChannel(i,0);
-            output[2*i+1] = rightChannel(i,0)*rightGain;
-        }
-    }
 }
 
 //--------------------------------------------------------------
@@ -316,8 +360,12 @@ void ofApp::keyPressed(int key)
 {
     if (key == 32)
     {
-        micOn = !micOn;
+        //micOn = !micOn;
         playback = !playback;
+        if(playback)
+            audioFile.setPaused(false);
+        else
+            audioFile.setPaused(true);
     }
 }
 

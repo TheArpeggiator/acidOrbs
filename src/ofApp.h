@@ -44,24 +44,27 @@ private:
     // Our sound stream object
     ofSoundStream soundStream;
 
-    // Stk i/o
-    stk::FileWvIn audioFile;
+    // FFT object
+    ofxFft* leftFourier,rightFourier;
 
     // Vectors for our left- and right-channel waveforms
     vector<float> left;
+    vector<float> leftTemp;
+    vector<float> rightTemp;
     vector<float> right;
-    vector<float> audioLeft;
-    vector<float> audioRight;
+    vector<float> lBins;
+    vector<float> rBins;
 
     // Double vectors to save previous waveforms, for plotting in the waterfall
     vector< vector<float> > leftHistory;
     vector< vector<float> > rightHistory;
-    vector< vector<float> > alHistory;
-    vector< vector<float> > arHistory;
 
     // Audio file playback/mic input toggles
     bool playback;
     bool micOn;
     float leftGain;
     float rightGain;
+
+    // Object for sound playback
+    ofSoundPlayer audioFile;
 };
