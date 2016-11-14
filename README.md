@@ -20,7 +20,8 @@ Controls are as follows --
 3. Change orb shape using 	-: p
 4. Toggle mic input using	-: m
 
-(Reference audio playback using 'space')
+Reference audio playback using 'space', reference track not included, github doesnt accept file > 25MB :/
+
 
 See it in action here -- https://youtu.be/76zc5309BrE
 
