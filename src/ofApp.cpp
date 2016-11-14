@@ -10,15 +10,23 @@ void ofApp::setup()
     //-AUDIO----------------------------------------------------
 
     // Setup the sound stream
-    soundStream.setup(this,0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
+    soundStream.setup(this, 0, MY_CHANNELS, MY_SRATE, MY_BUFFERSIZE, MY_NBUFFERS);
 
     // Setup wavefile playback
-    audioFile.load(ofToDataPath("wowWav.wav"));
-    audioFile.setVolume(0.5f);
-    audioFile.play();
-    audioFile.setPaused(true);
+    audioFileL.load(ofToDataPath("wowL.wav"));
+    audioFileL.setVolume(0.5f);
+    audioFileL.setPan(-1);
 
-    micOn = true;
+    audioFileR.load(ofToDataPath("wowR.wav"));
+    audioFileR.setVolume(0.5f);
+    audioFileR.setPan(1);
+
+    audioFileL.play();
+    audioFileR.play();
+    audioFileL.setPaused(true);
+    audioFileR.setPaused(true);
+
+    micOn = false;
     //playback = false;
 
     // Resize and initialize left and right buffers...
@@ -52,6 +60,8 @@ void ofApp::setup()
     leftFourier = ofxFft::create(MY_BUFFERSIZE, OF_FFT_WINDOW_HAMMING);
     rightFourier = ofxFft::create(MY_BUFFERSIZE, OF_FFT_WINDOW_HAMMING);
 
+    orbSizeF = 1;
+    orbSizeM = 1;
 }
 
 //--------------------------------------------------------------
@@ -116,7 +126,11 @@ void ofApp::update(){
             maxValue = abs(lBins[i]);
 
     for(int i = 0; i < leftFourier->getBinSize(); i++)
+    {
+        lBins[i] = lBins[i] + left[i];
         lBins[i] /= (maxValue*20);
+
+    }
 
     // Normalize for right bin buffer
     maxValue = 0;
@@ -125,7 +139,10 @@ void ofApp::update(){
             maxValue = abs(rBins[i]);
 
     for(int i = 0; i < rightFourier->getBinSize(); i++)
+    {
+        rBins[i] = rBins[i] + right[i];
         rBins[i] /= (maxValue*20);
+    }
 
 }
 
@@ -138,7 +155,6 @@ void ofApp::draw(){
     float waveform_amp   = wh * 0.25;
     float waveform_width = ww * 0.25;
 
-    //Vicotria's Code --------------- From Here
     float pi_inc = (float)(2*MY_PIE) / MY_BUFFERSIZE;
     float xcorr = 0.0;
     float ycorr = 0.0;
@@ -146,16 +162,12 @@ void ofApp::draw(){
     float distance = 0.5;
     float disVar = 0.0;
     float disIntensity = 10.0;
-    //------------------------------- To Here
+    //orbSizeF = 1.0;
 
-    int r_col;
-    int g_col;
-    int b_col;
+
 
     //----------- -----------Top-Left Channel
-    r_col = rand() % 255 + 0;
-    g_col = rand() % 255 + 0;
-    b_col = rand() % 255 + 0;
+
 
     ofPushStyle();
     ofPushMatrix();
@@ -170,37 +182,35 @@ void ofApp::draw(){
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
             // Each older buffer is further back by this amount
-            ofTranslate( 5, 4, -5);
+            if(micOn)
+                ofTranslate( 5, 4, -5);
 
             // Randomized color
-            ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
+            ofSetColor(r_col, r_col, g_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
             ofBeginShape();
                 // Make a vertex for each sample value
                 for (unsigned int k = 0; k < MY_BUFFERSIZE; k++)
                 {
+
                     disVar=(lBinHistory[j][k]*disIntensity) + distance;
 
                     total_radius = (waveform_width + waveform_amp * lBinHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc * 2) + ww *0.25; //Thanks
-                    ycorr = total_radius * sin(k * pi_inc * 2) - wh *0.75; //Victoria!
+                    xcorr = orbSizeF * total_radius * cos(k * pi_inc *2) + ww *0.25; //Thanks
+                    ycorr = orbSizeF * total_radius * sin(k * pi_inc *2) - wh *0.75; //Victoria!
 
                     ofVertex(xcorr, ycorr, 0);
                 }
             // End line. False == Don't connect first and last points.
-            ofEndShape(false);
+            ofEndShape(true);
         }
 
     ofPopMatrix();
     ofPopStyle();
 
     //-----------------------Bottom-Right Channel
-    r_col = rand() % 255 + 0;
-    g_col = rand() % 255 + 0;
-    b_col = rand() % 255 + 0;
-
     ofPushStyle();
     ofPushMatrix();
 
@@ -214,10 +224,11 @@ void ofApp::draw(){
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
             // Each older buffer is further back by this amount
-            ofTranslate( -5, -4, -5);
+            if (micOn)
+                ofTranslate( -5, -4, -5);
 
             // Randomized color
-            ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
+            ofSetColor(g_col, b_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
             ofBeginShape();
@@ -228,23 +239,19 @@ void ofApp::draw(){
 
                     total_radius = (waveform_width + waveform_amp * rBinHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc * 2) + ww *0.75;
-                    ycorr = total_radius * sin(k * pi_inc * 2) - wh *0.25;
+                    xcorr = orbSizeF * total_radius * cos(k * pi_inc * 2) + ww *0.75;
+                    ycorr = orbSizeF * total_radius * sin(k * pi_inc * 2) - wh *0.25;
 
                     ofVertex(xcorr, ycorr, 0);
                 }
             // End line. False == Don't connect first and last points.
-            ofEndShape(false);
+            ofEndShape(true);
         }
 
     ofPopMatrix();
     ofPopStyle();
 
     //----------- -----------Bottom-Left Channel
-    r_col = rand() % 255 + 0;
-    g_col = rand() % 255 + 0;
-    b_col = rand() % 255 + 0;
-
     ofPushStyle();
     ofPushMatrix();
 
@@ -258,10 +265,11 @@ void ofApp::draw(){
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
             // Each older buffer is further back by this amount
-            ofTranslate( 5, -4, -5);
+            if(micOn)
+                ofTranslate( 5, -4, -5);
 
             // Randomized color
-            ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
+            ofSetColor(g_col, b_col, r_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
             ofBeginShape();
@@ -272,23 +280,19 @@ void ofApp::draw(){
 
                     total_radius = (waveform_width + waveform_amp * leftHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc) + ww *0.25;
-                    ycorr = total_radius * sin(k * pi_inc) - wh *0.25;
+                    xcorr = orbSizeM * total_radius * cos(k * pi_inc) + ww *0.25;
+                    ycorr = orbSizeM * total_radius * sin(k * pi_inc) - wh *0.25;
 
                     ofVertex(xcorr, ycorr, 0);
                 }
             // End line. False == Don't connect first and last points.
-            ofEndShape(false);
+            ofEndShape(true);
         }
 
     ofPopMatrix();
     ofPopStyle();
 
     //-----------------------Top-Right Channel
-    r_col = rand() % 255 + 0;
-    g_col = rand() % 255 + 0;
-    b_col = rand() % 255 + 0;
-
     ofPushStyle();
     ofPushMatrix();
 
@@ -302,10 +306,11 @@ void ofApp::draw(){
         for ( int j = MY_BUFFERHISTORY-1; j >= 0; j--)
         {
             // Each older buffer is further back by this amount
-            ofTranslate( -5, 4, -5);
+            if(micOn)
+                ofTranslate( -5, 4, -5);
 
             // Randomized color
-            ofSetColor(r_col, g_col, b_col, 256*(j/(float)MY_BUFFERHISTORY));
+            ofSetColor(r_col, b_col, r_col, 256*(j/(float)MY_BUFFERHISTORY));
 
             // Start the line for this particular waveform
             ofBeginShape();
@@ -316,13 +321,13 @@ void ofApp::draw(){
 
                     total_radius = (waveform_width + waveform_amp * rightHistory[j][k]) *disVar;
 
-                    xcorr = total_radius * cos(k * pi_inc) + ww *0.75;
-                    ycorr = total_radius * sin(k * pi_inc) - wh *0.75;
+                    xcorr = orbSizeM * total_radius * cos(k * pi_inc) + ww *0.75;
+                    ycorr = orbSizeM * total_radius * sin(k * pi_inc) - wh *0.75;
 
                     ofVertex(xcorr, ycorr, 0);
                 }
             // End line. False == Don't connect first and last points.
-            ofEndShape(false);
+            ofEndShape(true);
         }
 
     ofPopMatrix();
@@ -341,7 +346,7 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels)
     {
         // Store incomping input into buffers
         for (int i = 0; i < bufferSize; i++)
-        {            
+        {
             left[i]         = input[i*2];       //unmodulated buffer
             right[i]        = input[i*2+1];     //unmodulated buffer
             leftTemp[i]		= input[i*2];          //buffer for FFT
@@ -351,70 +356,45 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels)
 
 }
 
-void ofApp::audioOut(float * output, int bufferSize, int nChannels)
-{
-
-}
-
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
-    if(key == 32)
+    if(key == ' ')
     {
         playback = !playback;
         if(playback)
-            audioFile.setPaused(false);
+        {
+            audioFileL.setPaused(false);
+            audioFileR.setPaused(false);
+        }
         else
-            audioFile.setPaused(true);
+        {
+            audioFileL.setPaused(true);
+            audioFileR.setPaused(true);
+        }
     }
-}
+    if (key == 'm')
+        micOn = !micOn;
 
-//--------------------------------------------------------------
-void ofApp::keyReleased(int key){
+    // Resize left and right channel orbs
+    if (key == 'p')
+    {
+        orbSizeF = (rand() % 30 + 10) / 10;
+        orbSizeM = (rand() % 30 + 10) / 10;
+    }
 
-}
+    // Reset to original orbs
+    if (key == 'o')
+    {
+        orbSizeF = 1;
+        orbSizeM = 1;
+    }
 
-//--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y ){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseEntered(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseExited(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){
-
+    // Controls colors of the visualizer
+    if (key == 'r')
+    {
+        r_col = rand() % 255 + 0;
+        g_col = rand() % 255 + 0;
+        b_col = rand() % 255 + 0;
+    }
 }

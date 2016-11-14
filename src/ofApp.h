@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxStk.h"
 #include "ofxFft.h"
 
 //-----------------------------------------------------------------------------
@@ -26,20 +25,9 @@ public:
     void draw();
 
     void keyPressed(int key);
-    void keyReleased(int key);
-    void mouseMoved(int x, int y );
-    void mouseDragged(int x, int y, int button);
-    void mousePressed(int x, int y, int button);
-    void mouseReleased(int x, int y, int button);
-    void mouseEntered(int x, int y);
-    void mouseExited(int x, int y);
-    void windowResized(int w, int h);
-    void dragEvent(ofDragInfo dragInfo);
-    void gotMessage(ofMessage msg);
 
     // Get buffer samples
     void audioIn(float * input, int bufferSize, int nChannels);
-    void audioOut(float * input, int bufferSize, int nChannels);
 
 private:
     // Our sound stream object
@@ -50,9 +38,9 @@ private:
 
     // Vectors for our left- and right-channel waveforms
     vector<float> left;
+    vector<float> right;
     vector<float> leftTemp;
     vector<float> rightTemp;
-    vector<float> right;
     vector<float> lBins;
     vector<float> rBins;
 
@@ -67,5 +55,13 @@ private:
     bool micOn;
 
     // Object for sound playback
-    ofSoundPlayer audioFile;
+    ofSoundPlayer audioFileL, audioFileR;
+
+    // Size of Orbs
+    float orbSizeF, orbSizeM;
+
+    // RGB Values
+    int r_col;
+    int g_col;
+    int b_col;
 };

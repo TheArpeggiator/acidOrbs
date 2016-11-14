@@ -1,2 +1,1 @@
-ofxStk
 ofxFft
